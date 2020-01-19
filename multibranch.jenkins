@@ -1,0 +1,174 @@
+pipeline {
+    environment {
+        PROJECT = "kebernetes-258422"
+        APP_NAME = "apache"
+        IMAGE_TAG = "gcr.io/${PROJECT}/${APP_NAME}:${env.BRANCH_NAME}.${env.BUILD_NUMBER}"
+    }
+    agent {
+        kubernetes {
+            label 'jenkins-slave'
+            defaultContainer 'jnlp'
+            yaml """
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    component: test
+spec:
+  serviceAccountName: cd-jenkins
+  containers:
+  - name: gcloud
+    image: gcr.io/cloud-builders/gcloud
+    imagePullPolicy: IfNotPresent
+    command:
+    - cat
+    resources:
+      requests:
+        cpu: 70m
+        memory: 256Mi
+      limits:
+        cpu: 300m
+        memory: 256Mi
+    tty: true
+  - name: kubectl
+    image: gcr.io/cloud-builders/kubectl
+    imagePullPolicy: IfNotPresent
+    command:
+    - cat
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+    tty: true
+"""
+        }
+    }
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '10', artifactNumToKeepStr: '10'))
+        timestamps()
+    }
+    triggers { pollSCM('* * * * *') }
+
+    stages {
+        stage('Git clone ') {
+            steps {
+               git url: 'https://github.com/r-mamchur/GKE_Exercise_1.git'
+            }
+        }
+        stage('will be ') {
+            steps{
+                script {
+                    sh "echo \"Going to build ${IMAGE_TAG} \""
+                }
+            }
+        }
+        stage('Build and push image') {
+            steps {
+                container('gcloud') {
+                    sh "PYTHONUNBUFFERED=1 gcloud builds submit --tag ${IMAGE_TAG} ./Dockers/Apache/"
+                }
+            }
+        }
+        stage('Deploy Production') {
+            when { branch 'master' }
+            steps {
+                container('kubectl') {
+                    sh "kubectl set image deployment wp-deployment wp-con=${IMAGE_TAG}"
+                }
+            }
+        }
+        stage('RollOut Production') {
+            when { branch 'master' }
+            steps {
+                container('kubectl') {
+                    sh "kubectl rollout status deployment wp-deployment --watch"
+                }
+            }
+        }
+        stage('Deploy Canary') {
+            when { branch 'canary' }
+            steps {
+                container('kubectl') {
+                    sh "kubectl set image deployment wp-canary-deployment wp-con=${IMAGE_TAG}"
+                }
+            }
+        }
+        stage('RollOut Canary') {
+            when { branch 'canary' }
+            steps {
+                container('kubectl') {
+                    sh "kubectl rollout status deployment wp-canary-deployment --watch"
+                }
+            }
+        }
+        stage('Results Production and Canary') {
+            when {
+                anyOf {
+                     branch 'master' 
+                     branch 'canary'
+                }
+            }
+            steps {
+                container('kubectl') {
+                    sh "kubectl get deployment wp-deployment -o wide"
+                    sh "kubectl get deployment wp-canary-deployment -o wide"
+                    sh "kubectl get pod -l \"app = wp\""
+                }
+            }
+        }
+        stage('Deploy environment Test') {
+            when {
+                not { branch 'master' }
+                not { branch 'canary' }
+            }
+            steps {
+                container('kubectl') {
+                    sh "kubectl set image deployment wp-deployment wp-con=${IMAGE_TAG} --namespace=test"
+                }
+            }
+        }
+        stage('RollOut environment Test') {
+            when {
+                not { branch 'master' }
+                not { branch 'canary' }
+            }
+            steps {
+                container('kubectl') {
+                    sh "kubectl rollout status deployment wp-deployment --namespace=test --watch"
+                }
+            }
+        }
+        stage('Results environment Test') {
+            when {
+                not { branch 'master' }
+                not { branch 'canary' }
+            }
+            steps {
+                container('kubectl') {
+                    sh "kubectl get deployment wp-deployment -o wide --namespace=test"
+                    sh "kubectl get pod -l \"app = wp\" --namespace=test "
+                }
+            }
+        }
+    }
+    post {
+        always {
+            echo 'I have finished'
+        }
+        success {
+            echo 'Job succeeeded!'
+        }
+        unstable {
+            echo 'I am unstable :/'
+        }
+        failure {
+            echo 'I failed :('
+        }
+        changed {
+            echo 'Things were different before...'
+        }
+    }
+}

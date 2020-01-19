@@ -1,0 +1,67 @@
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: wp-canary-deployment
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: wp
+    spec:
+      nodeSelector:
+        node: "web"
+      initContainers:
+      - name: init-wp
+        image: busybox
+        volumeMounts:
+        - name: wp-pvc 
+          mountPath: /var/www/html
+        command:
+        - sh
+        - -c
+        - 'while true; do ls /var/www/html/readme.html && break; sleep 2; done; echo "WP is initialized."'
+        resources:
+          requests:
+            cpu: 50m
+      - name: init-db
+        image: busybox
+        command:
+        - sh
+        - -c
+        - 'until nslookup mysql; do echo waiting for mydb; sleep 2; done; echo "MySql is run."'
+        resources:
+          requests:
+            cpu: 50m
+      containers:
+      - name: wp-con
+        image: rmamchur/apache:2
+        readinessProbe:
+          periodSeconds: 10
+          httpGet:
+            path: /readme.html
+            port: 80
+        ports:
+        - name: http
+          containerPort: 80
+        volumeMounts:
+        - name: wp-pvc 
+          mountPath: /var/www/html
+        - name: wp-conf
+          mountPath: /var/www/html/wp-config.php
+          subPath: wp-config.php
+        resources:
+          requests:
+            cpu: 30m
+            memory: 50Mi
+          limits:
+            cpu: 300m
+            memory: 500Mi
+      volumes:
+      - name: wp-pvc 
+        persistentVolumeClaim:
+          claimName: wp-pvc 
+      - name: wp-conf
+        secret:
+          secretName: wp-conf
+

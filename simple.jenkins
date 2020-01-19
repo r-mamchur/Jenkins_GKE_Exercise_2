@@ -1,0 +1,114 @@
+pipeline {
+
+    environment {
+        PROJECT = "kebernetes-258422"
+        APP_NAME = "apache"
+        IMAGE_TAG = "gcr.io/${PROJECT}/${APP_NAME}:${env.BUILD_NUMBER}"
+    }
+
+    agent {
+        kubernetes {
+            label 'jenkins-slave'
+            defaultContainer 'jnlp'
+            yaml """
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    component: test
+spec:
+  serviceAccountName: cd-jenkins
+  containers:
+  - name: gcloud
+    image: gcr.io/cloud-builders/gcloud
+    imagePullPolicy: IfNotPresent
+    command:
+    - cat
+    resources:
+      requests:
+        cpu: 70m
+        memory: 256Mi
+      limits:
+        cpu: 300m
+        memory: 256Mi
+    tty: true
+  - name: kubectl
+    image: gcr.io/cloud-builders/kubectl
+    imagePullPolicy: IfNotPresent
+    command:
+    - cat
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+    tty: true
+"""
+        }
+    }
+
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '10', artifactNumToKeepStr: '10'))
+        timestamps()
+    }
+        
+    stages {
+        stage('Git clone ') {
+            steps {
+               git url: 'https://github.com/r-mamchur/GKE_Exercise_1.git'
+            }
+        }
+        stage('will be') {
+            steps{
+                script {
+                    sh "echo \"Going to build ${IMAGE_TAG} \""
+                }    
+            }
+        }
+        stage('Build and push image') {
+            steps {
+                container('gcloud') {
+                    sh "PYTHONUNBUFFERED=1 gcloud builds submit --tag ${IMAGE_TAG} ./Dockers/Apache/"
+                }
+            }
+        }
+        stage('Update Deployment') {
+            steps {
+                container('kubectl') {
+                    sh "kubectl set image deployment wp-deployment wp-con=${IMAGE_TAG} "
+                }
+            }
+        }
+        stage('RollOut') {
+            steps {
+                container('kubectl') {
+                    sh "kubectl rollout status deployment wp-deployment --watch"
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            echo 'I have finished'
+        }
+        success {
+            container('kubectl') {
+                sh "kubectl get deployment wp-deployment -o wide"
+                sh "kubectl get pod -l \"app = wp\""
+            }
+        }
+        unstable {
+            echo 'I am unstable :/'
+        }
+        failure {
+            echo 'I failed :('
+        }
+        changed {
+            echo 'Things were different before...'
+        }
+    }
+
+}    

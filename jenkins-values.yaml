@@ -1,0 +1,49 @@
+master:
+  componentName: jenkins-mas
+  image: "jenkins/jenkins"
+  tag: "lts"
+
+  overwriteConfig: false
+
+  adminUser: admin
+  adminPassword: admin
+
+  installPlugins:
+    - kubernetes:latest
+    - workflow-job:latest
+    - workflow-aggregator:latest
+    - credentials-binding:latest
+    - git:latest
+    - google-oauth-plugin:latest
+    - google-source-plugin:latest
+    - google-kubernetes-engine:latest
+    - timestamper:latest
+
+  servicePort: 8080
+  targetPort: 8080
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "1024Mi"
+    limits:
+      cpu: "500m"
+      memory: "3500Mi"
+  javaOpts: "-Xms3500m -Xmx3500m"
+  serviceType: LoadBalancer
+
+agent:
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "256Mi"
+    limits:
+      cpu: "1"
+      memory: "512Mi"
+persistence:
+  size: 2Gi
+serviceAccount:
+  name: cd-jenkins
+serviceAccountAgent:
+  name: cd-jenkins
+rbac:
+  create: true
