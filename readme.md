@@ -5,7 +5,7 @@ Copy/Paste of part of that repository isn't good idea.
 So, you can use ***`kube-conf`*** generated there  
 or download the credentials for your cluster using the [gcloud CLI](https://cloud.google.com/sdk/):  
 ```shell
-gcloud container clusters get-credentials jennifer
+$ gcloud container clusters get-credentials jennifer
 Fetching cluster endpoint and auth data.
 kubeconfig entry generated for jennifer.
 ```
@@ -19,12 +19,13 @@ Grant it the cluster-admin role in your cluster:
 ```shell
 kubectl create clusterrolebinding jenkins-admin --clusterrole=cluster-admin --serviceaccount=default:cd-jenkins --kubeconfig="./kube-conf"
 ```  
-Service.type LoadBalancer was created. 
+Service.type LoadBalancer was created.   
 Connect to ***Jenkins-UI***: ***`admin/admin`***.
 
 ## Run Jenkins.
 Add credentials.  
 Kinds: ***`'Google Service Account from metadata'`*** and ***`'Kubernetes Service Account'`***  
+   
 ![](img/1_credentials.png)
 
 Jenkins build new image and deploy it.  
@@ -40,13 +41,14 @@ K8s will deploy new image.
 
 ## multibranch.jenkins
 Script build and deploy images after commit on different branches:  
-***`master`*** - default namespace, this is inherit from [Exercise_1](https://github.com/r-mamchur/GKE_Exercise_1)
-***`Canary`*** - deploy in ***wp-canary-deployment***.  
-***`Other`*** branches - build in ***Test*** namespace.  
-
-Merge this repo to repo [Exercise_1](https://github.com/r-mamchur/GKE_Exercise_1).
+- ***`master`*** - default namespace, this is inherit from [Exercise_1](https://github.com/r-mamchur/GKE_Exercise_1)
+- ***`Canary`*** - deploy in ***wp-canary-deployment***.  
+- ***`Other`*** branches - build in ***Test*** namespace.  
 
 ### Preparing environment. 
+
+Merge this repo to repo [Exercise_1](https://github.com/r-mamchur/GKE_Exercise_1).  
+
 ##### Canary. 
 ```shell
 kubectl create -f ./yaml/wp-canary-deployment.yaml --kubeconfig="./kube-conf"
@@ -72,24 +74,24 @@ kubectl --namespace=test create -f ./yaml/wp-svc-loadbalancer.yaml --kubeconfig=
 ```
 ### Jenkins CD.
 Example after ***Master branch*** commit/push.  
-##### Stages:
+#### Stages:
  ***Will be*** - tag of new image  
-![](img/2_will_be.png)
+![](img/2_will_be.png)  
  ***RollOut*** - deployment process  
-![](img/3_rollout.png)
+![](img/3_rollout.png)  
  ***Result*** - 
   Done. Make sure, this is image from stage ***'Will be'***.
-![](img/4_result.png)
+![](img/4_result.png)  
   
   ***'AGE' pods*** - new pods are running, old pods are terminating and ***Canary*** pod is old.
-![](img/5_result.png)
+![](img/5_result.png)  
 
 ##### Been used:
-* [https://github.com/GoogleCloudPlatform/continuous-deployment-on-kubernetes](https://github.com/GoogleCloudPlatform/continuous-deployment-on-kubernetes)  
-* [https://cloud.google.com/solutions/jenkins-on-kubernetes-engine-tutorial](https://cloud.google.com/solutions/jenkins-on-kubernetes-engine-tutorial)  
-* [https://cloud.google.com/solutions/jenkins-on-kubernetes-engine](https://cloud.google.com/solutions/jenkins-on-kubernetes-engine)  
-* [https://github.com/helm/charts/blob/28250ead2088bb36831864f43648d94dfee4f618/stable/jenkins/values.yaml](https://github.com/helm/charts/blob/28250ead2088bb36831864f43648d94dfee4f618/stable/jenkins/values.yaml)  
-* [https://github.com/jenkinsci/google-oauth-plugin/blob/develop/docs/home.md](https://github.com/jenkinsci/google-oauth-plugin/blob/develop/docs/home.md)
+- [https://github.com/GoogleCloudPlatform/continuous-deployment-on-kubernetes](https://github.com/GoogleCloudPlatform/continuous-deployment-on-kubernetes)  
+- [https://cloud.google.com/solutions/jenkins-on-kubernetes-engine-tutorial](https://cloud.google.com/solutions/jenkins-on-kubernetes-engine-tutorial)  
+- [https://cloud.google.com/solutions/jenkins-on-kubernetes-engine](https://cloud.google.com/solutions/jenkins-on-kubernetes-engine)  
+- [https://github.com/helm/charts/blob/28250ead2088bb36831864f43648d94dfee4f618/stable/jenkins/values.yaml](https://github.com/helm/charts/blob/28250ead2088bb36831864f43648d94dfee4f618/stable/jenkins/values.yaml)  
+- [https://github.com/jenkinsci/google-oauth-plugin/blob/develop/docs/home.md](https://github.com/jenkinsci/google-oauth-plugin/blob/develop/docs/home.md)
 
 
 
